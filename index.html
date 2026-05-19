@@ -754,10 +754,9 @@ document.getElementById('btn-invite').addEventListener('click', async () => {
   if (!name || !email || !password) { msg.textContent = 'All fields required.'; msg.className = 'auth-msg error'; return; }
   if (password.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; msg.className = 'auth-msg error'; return; }
 
-  const { error } = await sb.auth.admin.createUser({
+ const { error } = await sb.auth.signUp({
     email, password,
-    email_confirm: true,
-    user_metadata: { full_name: name }
+    options: { data: { full_name: name } }
   });
 
   if (error) { msg.textContent = error.message; msg.className = 'auth-msg error'; }
