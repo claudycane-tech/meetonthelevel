@@ -316,6 +316,35 @@
     }
     .empty-state-icon { font-size: 2rem; margin-bottom: .5rem; }
 
+    /* ── PROFILE SECTION ── */
+    .profile-area {
+      flex: 1; overflow-y: auto; padding: 1.25rem 1rem;
+      display: flex; flex-direction: column; gap: 1.25rem;
+    }
+    .profile-avatar-wrap {
+      display: flex; flex-direction: column; align-items: center; gap: .75rem;
+      padding: 1.5rem; background: var(--bg-2);
+      border: 1px solid rgba(0,229,192,.12); border-radius: var(--radius);
+    }
+    .profile-avatar-large {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: var(--accent-glow); border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem; font-weight: 700; color: var(--accent);
+      font-family: var(--font-head); overflow: hidden; cursor: pointer;
+      position: relative;
+    }
+    .profile-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-upload-hint { font-size: .7rem; color: var(--text-2); }
+    .profile-email-display { font-size: .75rem; color: var(--text-1); }
+    .profile-section-title {
+      font-family: var(--font-head); font-size: .75rem; font-weight: 700;
+      color: var(--text-2); letter-spacing: .1em; text-transform: uppercase;
+      padding-bottom: .5rem; border-bottom: 1px solid rgba(0,229,192,.08);
+    }
+    .profile-form { background: var(--bg-2); border: 1px solid rgba(0,229,192,.1); border-radius: var(--radius); padding: 1.25rem; }
+    .profile-save-msg { font-size: .75rem; text-align: center; margin-top: .75rem; }
+
     /* Utility */
     .hidden { display: none !important; }
     .loading { opacity: .5; pointer-events: none; }
@@ -324,7 +353,6 @@
     .online-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--accent); display: inline-block; margin-right: 4px;
-      box-shadow: 0 0 4px var(--accent);
     }
   </style>
 </head>
@@ -444,6 +472,38 @@
       </div>
     </div>
 
+    <!-- PROFILE VIEW -->
+    <div class="section-view" id="view-profile">
+      <div class="profile-area">
+        <div class="profile-avatar-wrap">
+          <div class="profile-avatar-large" id="profile-avatar-large" title="Tap to change photo">
+            <span id="profile-avatar-initials">?</span>
+            <img id="profile-avatar-img" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%" />
+          </div>
+          <div class="avatar-upload-hint">Tap avatar to upload photo</div>
+          <div class="profile-email-display" id="profile-email-display"></div>
+          <input type="file" id="avatar-file-input" accept="image/*" style="display:none" />
+        </div>
+        <div>
+          <div class="profile-section-title">Display Name</div>
+          <div class="profile-form" style="margin-top:.75rem">
+            <div class="form-row">
+              <label class="form-label">Your name (shown in chat)</label>
+              <input class="input-field" id="profile-name-input" placeholder="Your name" style="margin-bottom:0" />
+            </div>
+            <button class="btn-primary" id="btn-save-profile" style="margin-top:.85rem">Save changes</button>
+            <div id="profile-save-msg" class="profile-save-msg"></div>
+          </div>
+        </div>
+        <div>
+          <div class="profile-section-title">Account</div>
+          <div class="profile-form" style="margin-top:.75rem;display:flex;flex-direction:column;gap:.65rem">
+            <button class="btn-cancel" id="btn-signout-profile" style="width:100%;padding:.75rem">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ADMIN VIEW -->
     <div class="section-view" id="view-admin">
       <div class="admin-area">
@@ -481,6 +541,10 @@
       <div class="nav-icon">📌</div>
       <div class="nav-label">Decisions</div>
     </div>
+    <div class="nav-item" data-nav="profile">
+      <div class="nav-icon">👤</div>
+      <div class="nav-label">Profile</div>
+    </div>
     <div class="nav-item" data-nav="admin" id="nav-admin" style="display:none">
       <div class="nav-icon">⚙️</div>
       <div class="nav-label">Admin</div>
@@ -490,9 +554,9 @@
 
 <script>
 // ── CONFIG — replace with your Supabase project values ──
-const SUPABASE_URL = 'https://wykukszumjratluwaaoh.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_qeMpgBxXiOt11z22faJRMw_bfVq_004';
-const ADMIN_EMAIL = 'claudycane@gmail.com'; // your email address
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const ADMIN_EMAIL = 'YOUR_ADMIN_EMAIL'; // your email address
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
@@ -539,7 +603,7 @@ document.getElementById('auth-btn').addEventListener('click', async () => {
   btn.textContent = 'Sending...';
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: 'https://www.meetonthelevel.app' }
+    options: { emailRedirectTo: window.location.origin }
   });
   btn.disabled = false;
   btn.textContent = 'Send magic link';
@@ -568,10 +632,12 @@ async function enterApp() {
 
   // Avatar
   const initials = (currentProfile?.display_name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-  document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('user-avatar').addEventListener('click', async () => {
-  if (confirm('Sign out?')) await sb.auth.signOut();
-});
+  if (currentProfile?.avatar_url) {
+    document.getElementById('user-avatar').innerHTML = `<img src="${currentProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+  } else {
+    document.getElementById('user-avatar').textContent = initials;
+  }
+  document.getElementById('user-avatar').addEventListener('click', () => switchNav('profile'));
 
   // Show admin nav if admin
   if (currentProfile?.is_admin) {
@@ -784,12 +850,13 @@ document.getElementById('btn-invite').addEventListener('click', async () => {
   }
 });
 
-// ── ONLINE PRESENCE ──
+// ── ONLINE PRESENCE (fixed: count unique users not connections) ──
 async function trackOnline() {
-  const room = sb.channel('online-users');
+  const room = sb.channel('online-users', { config: { presence: { key: currentUser.id } } });
   room.on('presence', { event: 'sync' }, () => {
     const state = room.presenceState();
-    const count = Object.keys(state).length;
+    const uniqueUsers = new Set(Object.values(state).flat().map(p => p.user_id));
+    const count = uniqueUsers.size;
     document.getElementById('online-count').textContent = `${count} online`;
   }).subscribe(async (status) => {
     if (status === 'SUBSCRIBED') {
@@ -797,6 +864,62 @@ async function trackOnline() {
     }
   });
 }
+
+// ── PROFILE ──
+function loadProfileView() {
+  document.getElementById('profile-email-display').textContent = currentUser?.email || '';
+  document.getElementById('profile-name-input').value = currentProfile?.display_name || '';
+  if (currentProfile?.avatar_url) {
+    const img = document.getElementById('profile-avatar-img');
+    img.src = currentProfile.avatar_url;
+    img.style.display = 'block';
+    document.getElementById('profile-avatar-initials').style.display = 'none';
+  }
+}
+
+document.getElementById('profile-avatar-large').addEventListener('click', () => {
+  document.getElementById('avatar-file-input').click();
+});
+
+document.getElementById('avatar-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file || !currentUser) return;
+  const btn = document.getElementById('btn-save-profile');
+  const msg = document.getElementById('profile-save-msg');
+  msg.textContent = 'Uploading...'; msg.style.color = 'var(--text-1)';
+  const ext = file.name.split('.').pop();
+  const path = `avatars/${currentUser.id}.${ext}`;
+  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upErr) { msg.textContent = 'Upload failed: ' + upErr.message; msg.style.color = 'var(--danger)'; return; }
+  const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
+  const avatarUrl = urlData.publicUrl + '?t=' + Date.now();
+  await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+  currentProfile.avatar_url = avatarUrl;
+  const img = document.getElementById('profile-avatar-img');
+  img.src = avatarUrl; img.style.display = 'block';
+  document.getElementById('profile-avatar-initials').style.display = 'none';
+  const headerAvatar = document.getElementById('user-avatar');
+  headerAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+  msg.textContent = '✓ Photo updated'; msg.style.color = 'var(--accent)';
+});
+
+document.getElementById('btn-save-profile').addEventListener('click', async () => {
+  const name = document.getElementById('profile-name-input').value.trim();
+  const msg = document.getElementById('profile-save-msg');
+  if (!name) { msg.textContent = 'Name cannot be empty.'; msg.style.color = 'var(--danger)'; return; }
+  const { error } = await sb.from('profiles').update({ display_name: name }).eq('id', currentUser.id);
+  if (error) { msg.textContent = 'Error saving.'; msg.style.color = 'var(--danger)'; return; }
+  currentProfile.display_name = name;
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  if (!currentProfile.avatar_url) document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('profile-avatar-initials').textContent = initials;
+  msg.textContent = '✓ Name updated'; msg.style.color = 'var(--accent)';
+  setTimeout(() => msg.textContent = '', 3000);
+});
+
+document.getElementById('btn-signout-profile').addEventListener('click', async () => {
+  if (confirm('Sign out?')) await sb.auth.signOut();
+});
 
 // ── NAVIGATION ──
 document.querySelectorAll('[data-nav]').forEach(item => {
@@ -818,6 +941,10 @@ function switchNav(nav) {
   } else if (nav === 'decisions') {
     document.getElementById('view-decisions').classList.add('active');
     setHeaderLabel('Decisions');
+  } else if (nav === 'profile') {
+    document.getElementById('view-profile').classList.add('active');
+    setHeaderLabel('Profile');
+    loadProfileView();
   } else if (nav === 'admin') {
     document.getElementById('view-admin').classList.add('active');
     setHeaderLabel('Admin');
@@ -838,7 +965,7 @@ document.querySelectorAll('.tab[data-section]').forEach(tab => {
 });
 
 function setHeaderLabel(section) {
-  const labels = { general: 'General', techstack: 'Tech Stack', design: 'Design', bugs: 'Bug Tracker', Decisions: 'Decisions Log', Admin: 'Admin Panel' };
+  const labels = { general: 'General', techstack: 'Tech Stack', design: 'Design', bugs: 'Bug Tracker', Decisions: 'Decisions Log', Admin: 'Admin Panel', Profile: 'My Profile' };
   document.getElementById('header-section-label').textContent = labels[section] || section;
 }
 
