@@ -834,12 +834,15 @@ document.getElementById('btn-signout-profile').addEventListener('click', async (
 // ONLINE PRESENCE
 // ────────────────────────────────────────────
 async function trackOnline() {
-  const room = sb.channel('online-users', { config: { presence: { key: currentUser.id } } });
+  const room = sb.channel('online-users', {
+    config: { presence: { key: currentUser.id } }
+  });
   room.on('presence', { event: 'sync' }, () => {
     const state = room.presenceState();
     const unique = new Set(Object.values(state).flat().map(p => p.user_id));
     document.getElementById('online-count').textContent = `${unique.size} online`;
-  }).subscribe(async status => {
+  });
+  await room.subscribe(async status => {
     if (status === 'SUBSCRIBED') await room.track({ user_id: currentUser.id });
   });
 }
